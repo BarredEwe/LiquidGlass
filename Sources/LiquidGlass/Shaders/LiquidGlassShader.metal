@@ -20,27 +20,16 @@ struct Uniforms {
     float tintAlpha;
 };
 
-// ──────────────────────────────────────────
-// Signed-distance helpers
-float sdRoundedRect(float2 pos, float2 halfSize, float4 cornerRadius) {
-    cornerRadius.xy = (pos.x > 0.0) ? cornerRadius.xy : cornerRadius.zw;
-    cornerRadius.x = (pos.y > 0.0) ? cornerRadius.x : cornerRadius.y;
-
-    float2 q = abs(pos) - halfSize + cornerRadius.x;
-    return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - cornerRadius.x;
-}
-
 float boxSDF(float2 uv, float2 boxSize, float cornerRadius) {
-    return sdRoundedRect(uv, boxSize * 0.5, float4(cornerRadius));
+    float2 q = abs(uv) - boxSize * 0.5 + cornerRadius;
+    return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - cornerRadius;
 }
 
 // ──────────────────────────────────────────
 // Noise-based jitter for cheap blur
 float2 randomVec2(float2 co) {
-    return fract(sin(float2(
-        dot(co, float2(127.1, 311.7)),
-        dot(co, float2(269.5, 183.3))
-    )) * 43758.5453);
+    float2 seed = fract(co * 0.12345 + float2(4.44, 7.77));
+    return fract(sin(seed * float2(127.1, 311.7)) * 43758.5453);
 }
 
 float3 stableSample(float2 uv, float timeOffset, float mipLevel,
@@ -51,22 +40,28 @@ float3 stableSample(float2 uv, float timeOffset, float mipLevel,
     return tex.sample(samp, uv + jitter / u.resolution.x, level(lod)).rgb;
 }
 
-// Gaussian-ish blur 
-float3 getBlurredColor(float2 uv, float mipLevel,
-                       texture2d<float> tex, sampler samp,
-                       constant Uniforms &u) {
-    float3 color = 0.0;
-    for (int i = 0; i < 5; i++) {
-        float t = float(i) * 0.2;
-        color += stableSample(uv, t, mipLevel, tex, samp, u);
-    }
-    return color * 0.2;
-}
-
 // Colour helpers
 float3 saturateColor(float3 color, float factor) {
     float gray = dot(color, float3(0.299, 0.587, 0.114));
     return mix(float3(gray), color, factor);
+}
+
+// Gaussian-ish blur
+float3 getBlurredColor(float2 uv, float mipLevel,
+                       texture2d<float> tex, sampler samp,
+                       constant Uniforms &u) {
+    const float offsets[9] = {0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0};
+    float3 sum = float3(0.0);
+    for (uint i = 0; i < 9; ++i) {
+        sum += stableSample(uv, offsets[i], mipLevel, tex, samp, u);
+    }
+    float3 avg = sum * 0.1;
+
+    // Сатурация + гамма
+    avg = saturateColor(avg, 2.0);
+    avg = mix(avg, avg * avg, 0.5);
+
+    return avg;
 }
 
 // Refraction offset based on SDF
@@ -116,7 +111,7 @@ fragment float4 liquidGlassFragment(VertexOut in               [[stage_in]],
     float3 mixed = mix(baseTex, blurred, weight);
 
     // Rim-light
-    mixed += weight * mix(0.0, 0.7, clamp(highlight(normalizedInside) * pow(edgeBlendFactor, 4.0), 0.0, 1.0));
+    mixed += clamp(highlight(normalizedInside) * pow(edgeBlendFactor, 5.0), 0.0, 1.0) * 0.5;
 
     // Glass tint
     mixed = mix(mixed, u.tintColor, u.tintAlpha * weight);
@@ -130,7 +125,7 @@ fragment float4 liquidGlassFragment(VertexOut in               [[stage_in]],
 
     // Inside mask
     float boxMask = 1.0 - clamp(sdf, 0.0, 1.0);
-    float3 final = mix(baseTex, mixed, float3(boxMask));
+    float3 final = mix(baseTex, mixed, boxMask);
 
     return float4(final, 1.0);
 }
