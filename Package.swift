@@ -13,6 +13,9 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "LiquidGlass")
+            name: "LiquidGlass",
+            resources: [
+                .process("Shaders")
+            ])
     ]
 )

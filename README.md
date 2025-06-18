@@ -20,7 +20,7 @@
 | 🔍 **Zero screenshots**      | Background is captured automatically – just drop `liquidGlassBackground` on any view.           |
 | ⚡ **Real‑time**              | Optimised `MTLTexture` snapshots + lazy redraw; redraws only when the background actually changes. |
 | 🛠 **Flexible update modes** | `.continuous`, `.once`, `.manual` via the `updateMode` modifier.                    |
-| 🧩 **Pure SwiftUI**          | Works seamlessly in both worlds.                                                                   |
+| 🧩 **SwiftUI + UIKit**       | Works seamlessly in both frameworks with native APIs.                                            |
 | 💤 **Battery‑friendly**      | MTKView stays paused until the provider notifies it – no wasted frames.                            |
 
 ## 🛠 Installation
@@ -34,14 +34,29 @@ https://github.com/BarredEwe/LiquidGlass.git
 Or via **Xcode » Package Dependencies…**
 Select ***LiquidGlass*** and you’re done.
 
-## 🚀 Quick start (SwiftUI)
+## 🚀 Quick start
+
+### SwiftUI
 
 ```swift
 Button("Glass Text") { }
     .liquidGlassBackground(cornerRadius: 60)
 ```
 
-## 🖼 Example
+### UIKit
+
+```swift
+// Using extension (recommended)
+button.addLiquidGlassBackground(cornerRadius: 25)
+
+// Or using LiquidGlassUIView directly
+let glassView = LiquidGlassUIView(cornerRadius: 30, blurScale: 0.8)
+containerView.addSubview(glassView)
+```
+
+## 🖼 Examples
+
+### SwiftUI Example
 
 <table>
 <tr>
@@ -74,6 +89,31 @@ ZStack {
 </tr>
 </table>
 
+### UIKit Example
+
+```swift
+class ViewController: UIViewController {
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        
+        let button = UIButton(type: .system)
+        button.setTitle("Glass Button", for: .normal)
+        button.setTitleColor(.white, for: .normal)
+        
+        // Add liquid glass background
+        button.addLiquidGlassBackground(
+            cornerRadius: 25,
+            updateMode: .continuous(interval: 0.1),
+            blurScale: 0.7,
+            tintColor: .white.withAlphaComponent(0.1)
+        )
+        
+        view.addSubview(button)
+        // ... setup constraints
+    }
+}
+```
+
 ## ⚙️ Update modes
 
 | Mode                     | What it does                              | Best for                                    |
@@ -82,10 +122,67 @@ ZStack {
 | `.once`                  | Captures exactly one frame.               | Static dialogs, settings sheets.            |
 | `.manual`                | Capture only when you call `invalidate()` | Power‑saving, custom triggers.              |
 
-Via **SwiftUI**:
+### SwiftUI:
 
 ```swift
 .liquidGlassBackground(updateMode: .once)
+```
+
+### UIKit:
+
+```swift
+// Using extension
+button.addLiquidGlassBackground(updateMode: .manual)
+
+// Manual invalidation
+button.liquidGlassBackground?.invalidateBackground()
+
+// Using LiquidGlassUIView directly
+let glassView = LiquidGlassUIView(updateMode: .once)
+glassView.invalidateBackground() // for manual updates
+```
+
+## 🎛 UIKit API Reference
+
+### LiquidGlassUIView
+
+```swift
+// Initialization
+let glassView = LiquidGlassUIView(
+    cornerRadius: 20,
+    updateMode: .continuous(),
+    blurScale: 0.5,
+    tintColor: .gray.withAlphaComponent(0.2)
+)
+
+// Properties (all animatable)
+glassView.cornerRadius = 25
+glassView.blurScale = 0.8
+glassView.tintColor = .blue.withAlphaComponent(0.1)
+glassView.updateMode = .manual
+
+// Methods
+glassView.invalidateBackground()
+```
+
+### UIView Extensions
+
+```swift
+// Add glass background (fills entire view)
+view.addLiquidGlassBackground(cornerRadius: 20)
+
+// Add glass background with custom frame
+view.addLiquidGlassBackground(
+    frame: CGRect(x: 0, y: 0, width: 200, height: 50),
+    cornerRadius: 25
+)
+
+// Access glass backgrounds
+let glassView = view.liquidGlassBackground
+let allGlassViews = view.liquidGlassBackgrounds
+
+// Remove glass backgrounds
+view.removeLiquidGlassBackgrounds()
 ```
 
 ## 🎨 Shader & Customisation
@@ -100,11 +197,34 @@ Via **SwiftUI**:
 * Snapshot covers only the area behind the glass – minimal memory.
 * Layers above the glass are never hidden → no flicker.
 * Lazy redraw means nearly zero GPU when nothing changes.
+* UIKit and SwiftUI versions share the same optimized Metal backend.
+
+## 🔄 Migration from SwiftUI-only
+
+If you're upgrading from a SwiftUI-only version, no changes are needed for existing SwiftUI code. The new UIKit support is additive:
+
+```swift
+// Existing SwiftUI code continues to work unchanged
+Button("Glass") { }
+    .liquidGlassBackground()
+
+// New UIKit support
+button.addLiquidGlassBackground()
+```
 
 ## 🙋‍♂️ FAQ
 
 > **The glass doesn’t update when I scroll.**  
-> Use `.continuous(interval: 0.016)` (≈60 fps) or trigger `.manual`’s `invalidate()` in `scrollViewDidScroll`.
+> Use `.continuous(interval: 0.016)` (≈60 fps) or trigger `.manual`'s `invalidate()` in `scrollViewDidScroll`.
+
+> **Can I animate the glass properties?**  
+> Yes! In UIKit, all properties (`cornerRadius`, `blurScale`, `tintColor`) are animatable with `UIView.animate()`.
+
+> **How do I use this in a table view cell?**  
+> Use `.once` or `.manual` update mode for better performance, and call `invalidateBackground()` when the cell is reused.
+
+> **Can I mix SwiftUI and UIKit glass views?**  
+> Absolutely! They use the same Metal backend and work seamlessly together.
 
 ## 🛡 License
 
@@ -113,5 +233,3 @@ MIT © 2025 • BarredEwe / Prefire
 ---
 
 **Made with ❤️ & Metal**
-
-```
