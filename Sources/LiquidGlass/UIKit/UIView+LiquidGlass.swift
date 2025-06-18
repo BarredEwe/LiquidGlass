@@ -19,7 +19,7 @@ public extension UIView {
     @discardableResult
     func addLiquidGlassBackground(
         cornerRadius: CGFloat = 20,
-        updateMode: SnapshotUpdateMode = .continuous(),
+        updateMode: SnapshotUpdateMode = .continuous(interval: 0.2),
         blurScale: CGFloat = 0.5,
         tintColor: UIColor = .gray.withAlphaComponent(0.2)
     ) -> LiquidGlassUIView {
@@ -55,7 +55,7 @@ public extension UIView {
     func addLiquidGlassBackground(
         frame: CGRect,
         cornerRadius: CGFloat = 20,
-        updateMode: SnapshotUpdateMode = .continuous(),
+        updateMode: SnapshotUpdateMode = .continuous(interval: 0.2),
         blurScale: CGFloat = 0.5,
         tintColor: UIColor = .gray.withAlphaComponent(0.2)
     ) -> LiquidGlassUIView {

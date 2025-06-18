@@ -83,6 +83,7 @@ public class LiquidGlassUIView: UIView {
     /// Manually invalidate the background texture (useful when updateMode is .manual)
     public func invalidateBackground() {
         backgroundProvider?.invalidate()
+        metalView.setNeedsDisplay()
     }
 
     // MARK: - Private Methods
@@ -219,7 +220,7 @@ private class MetalCoordinator: NSObject, MTKViewDelegate {
             time: Float(CFAbsoluteTimeGetCurrent() - startTime),
             blurScale: Float(blurScale),
             boxSize: SIMD2<Float>(Float(view.drawableSize.width), Float(view.drawableSize.height)),
-            cornerRadius: Float(cornerRadius),
+            cornerRadius: Float(cornerRadius * 0.32), // Align with SwiftUI
             tintColor: SIMD3<Float>(
                 Float(tintColor.cgColor.components?[safe: 0] ?? 0),
                 Float(tintColor.cgColor.components?[safe: 1] ?? 0),

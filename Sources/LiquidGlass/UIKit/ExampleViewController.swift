@@ -35,8 +35,8 @@ public class ExampleViewController: UIViewController {
 
     private func setupGradientBackground() {
         gradientLayer.colors = [
-            UIColor.systemBlue.cgColor,
-            UIColor.systemPurple.cgColor,
+            UIColor.blue.cgColor,
+            UIColor.purple.cgColor,
             UIColor.systemPink.cgColor
         ]
         gradientLayer.startPoint = CGPoint(x: 0, y: 0)
@@ -66,9 +66,9 @@ public class ExampleViewController: UIViewController {
         // Add glass background using extension
         glassButton1.addLiquidGlassBackground(
             cornerRadius: 25,
-            updateMode: .continuous(interval: 0.1),
-            blurScale: 0.7,
-            tintColor: .white.withAlphaComponent(0.1)
+            updateMode: .continuous(interval: 0.2),
+            blurScale: 0.5,
+            tintColor: .gray.withAlphaComponent(0.2)
         )
 
         // Glass button 2 - using direct LiquidGlassUIView
@@ -78,9 +78,9 @@ public class ExampleViewController: UIViewController {
 
         let glassView = LiquidGlassUIView(
             cornerRadius: 30,
-            updateMode: .continuous(interval: 0.15),
-            blurScale: 0.8,
-            tintColor: .cyan.withAlphaComponent(0.15)
+            updateMode: .continuous(interval: 0.2),
+            blurScale: 0.5,
+            tintColor: .gray.withAlphaComponent(0.2)
         )
         glassView.translatesAutoresizingMaskIntoConstraints = false
         glassContainer.addSubview(glassView)
@@ -104,9 +104,9 @@ public class ExampleViewController: UIViewController {
 
         let manualGlass = glassLabel.addLiquidGlassBackground(
             cornerRadius: 20,
-            updateMode: .manual,
+            updateMode: .continuous(interval: 0.2), // Changed to continuous for consistency
             blurScale: 0.5,
-            tintColor: .yellow.withAlphaComponent(0.1)
+            tintColor: .gray.withAlphaComponent(0.2)
         )
 
         // Tap gesture to manually update
@@ -154,25 +154,29 @@ public class ExampleViewController: UIViewController {
     }
 
     private func startGradientAnimation() {
-        animationTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { _ in
+        animationTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { _ in
             Task { @MainActor in
-                UIView.animate(withDuration: 2.0, delay: 0, options: [.curveEaseInOut]) {
-                    // Animate gradient colors
-                    let newColors = [
-                        UIColor(hue: CGFloat.random(in: 0...1), saturation: 0.8, brightness: 0.8, alpha: 1).cgColor,
-                        UIColor(hue: CGFloat.random(in: 0...1), saturation: 0.8, brightness: 0.8, alpha: 1).cgColor,
-                        UIColor(hue: CGFloat.random(in: 0...1), saturation: 0.8, brightness: 0.8, alpha: 1).cgColor
+                UIView.animate(withDuration: 5.0, delay: 0, options: [.curveLinear]) {
+                    // Toggle between two gradient states to match SwiftUI
+                    let colors1 = [
+                        UIColor.blue.cgColor,
+                        UIColor.purple.cgColor,
+                        UIColor.systemPink.cgColor
                     ]
-                    self.gradientLayer.colors = newColors
-
-                    // Animate gradient direction
-                    let startPoint = CGPoint(x: CGFloat.random(in: 0...1), y: CGFloat.random(in: 0...1))
-                    let endPoint = CGPoint(x: CGFloat.random(in: 0...1), y: CGFloat.random(in: 0...1))
-                    self.gradientLayer.startPoint = startPoint
-                    self.gradientLayer.endPoint = endPoint
+                    let colors2 = [
+                        UIColor.systemPink.cgColor,
+                        UIColor.purple.cgColor,
+                        UIColor.blue.cgColor
+                    ]
+                    // Use forced cast with optional chaining
+                    let currentFirstColor = self.gradientLayer.colors?.first as! CGColor?
+                    self.gradientLayer.colors = (currentFirstColor == colors1.first) ? colors2 : colors1
+                    self.gradientLayer.startPoint = CGPoint(x: 0, y: 0)
+                    self.gradientLayer.endPoint = CGPoint(x: 1, y: 1)
                 }
             }
         }
+        RunLoop.main.add(animationTimer!, forMode: .common) // Ensure timer runs on main thread
     }
 
     @objc private func buttonTapped() {
@@ -184,7 +188,6 @@ public class ExampleViewController: UIViewController {
     @objc private func manualUpdate() {
         if let label = view.viewWithTag(999) as? UILabel {
             label.liquidGlassBackground?.invalidateBackground()
-
             // Visual feedback
             UIView.animate(withDuration: 0.1, animations: {
                 label.transform = CGAffineTransform(scaleX: 0.95, y: 0.95)
