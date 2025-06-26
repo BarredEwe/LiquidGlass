@@ -5,7 +5,7 @@ import MetalKit
 
 /// Describes how often the background snapshot should be refreshed.
 public enum SnapshotUpdateMode {
-    /// Captures every *interval* seconds (default ≈ 5 fps).
+    /// Captures every *interval* seconds (default ≈ 5 fps).
     case continuous(interval: TimeInterval = 0.2)
     /// Captures exactly once and re‑uses the texture forever.
     case once
@@ -22,7 +22,7 @@ public final class BackgroundTextureProvider {
         didSet { resetTimer() }
     }
     public var didUpdateTexture: (() -> Void)?
-    
+
     private weak var timerTarget: UIView?
     private let device: MTLDevice
     private let textureLoader: MTKTextureLoader
@@ -34,7 +34,7 @@ public final class BackgroundTextureProvider {
             didUpdateTexture?()
         }
     }
-    
+
     public init(device: MTLDevice) {
         self.device = device
         self.textureLoader = MTKTextureLoader(device: device)
@@ -52,20 +52,22 @@ public final class BackgroundTextureProvider {
         if timerTarget !== view { timerTarget = view }
 
         if let cached = cachedTexture { return cached }
+        view.layer.displayIfNeeded() // Ensure layers are updated before snapshot
         cachedTexture = makeSnapshotTexture(from: view)
         lastCaptureTime = CFAbsoluteTimeGetCurrent()
         return cachedTexture
     }
 
-    // MARK: – Private
+    // MARK: - Private
 
     private func resetTimer() {
         timer?.invalidate()
         switch updateMode {
         case .continuous(let interval):
-            timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self]  _ in
+            timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
                 Task { @MainActor in
                     guard let self, let view = self.timerTarget else { return }
+                    view.layer.displayIfNeeded() // Ensure layers are updated
                     self.cachedTexture = self.makeSnapshotTexture(from: view)
                     self.lastCaptureTime = CFAbsoluteTimeGetCurrent()
                 }
@@ -75,18 +77,18 @@ public final class BackgroundTextureProvider {
             timer = nil
         }
     }
-    
+
     @MainActor private func makeSnapshotTexture(from view: UIView) -> MTLTexture? {
         if isCapturingSnapshot { return cachedTexture }
         isCapturingSnapshot = true
         defer { isCapturingSnapshot = false }
-        
+
         if let cg = snapshotBehind(view) {
             return try? textureLoader.newTexture(cgImage: cg, options: [.SRGB: false, .generateMipmaps: true])
         }
         return nil
     }
-    
+
     @MainActor
     private func snapshotBehind(_ glass: UIView) -> CGImage? {
         guard let window = glass.window else { return nil }
@@ -97,6 +99,13 @@ public final class BackgroundTextureProvider {
             cg.translateBy(x: -rect.origin.x, y: -rect.origin.y)
             cg.setFillColor((window.backgroundColor ?? .systemBackground).cgColor)
             cg.fill(window.bounds)
+
+            // Render the view controller's view layer to capture gradient
+            if let rootView = window.rootViewController?.view {
+                cg.saveGState()
+                rootView.layer.render(in: cg)
+                cg.restoreGState()
+            }
 
             var layers: [CALayer] = []
             var layer: CALayer = glass.layer
