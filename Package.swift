@@ -9,13 +9,15 @@ let package = Package(
     products: [
         .library(
             name: "LiquidGlass",
-            targets: ["LiquidGlass"]),
+            targets: ["LiquidGlass"]
+        ),
     ],
     targets: [
         .target(
             name: "LiquidGlass",
             resources: [
                 .process("Shaders")
-            ])
+            ]
+		)
     ]
 )
