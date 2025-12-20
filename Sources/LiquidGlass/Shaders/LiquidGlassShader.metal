@@ -55,11 +55,10 @@ float3 getBlurredColor(float2 uv, float mipLevel,
     for (uint i = 0; i < 9; ++i) {
         sum += stableSample(uv, offsets[i], mipLevel, tex, samp, u);
     }
-    float3 avg = sum * 0.1;
 
-    // Сатурация + гамма
-    avg = saturateColor(avg, 2.0);
-    avg = mix(avg, avg * avg, 0.5);
+    float3 avg = sum * (1.0 / 9.0);
+    avg = saturateColor(avg, 1.8);
+    avg = mix(avg, avg * avg, 0.45);
 
     return avg;
 }
@@ -68,8 +67,12 @@ float3 getBlurredColor(float2 uv, float mipLevel,
 float2 computeRefractOffset(float sdf) {
     if (sdf < 0.1) return float2(0.0);
 
-    float2 grad = normalize(float2(dfdx(sdf), dfdy(sdf)));
-    float offsetAmount = pow(abs(sdf), 12.0) * -0.1;
+    float2 g = float2(dfdx(sdf), dfdy(sdf));
+    float lenG = max(length(g), 1e-4);
+    float2 grad = g / lenG;
+
+    // Более читаемая, но мягкая рефракция
+    float offsetAmount = pow(abs(sdf), 10.0) * -0.16;
     return grad * offsetAmount;
 }
 
@@ -77,7 +80,10 @@ float2 computeRefractOffset(float sdf) {
 float highlight(float sdf) {
     if (sdf < 0.1) return 0.0;
 
-    float2 grad = normalize(float2(dfdx(sdf), dfdy(sdf)));
+    float2 g = float2(dfdx(sdf), dfdy(sdf));
+    float lenG = max(length(g), 1e-4);
+    float2 grad = g / lenG;
+
     return 1.0 - clamp(pow(1.0 - abs(dot(grad, float2(-1.0, 1.0))), 0.5), 0.0, 1.0);
 }
 
@@ -91,10 +97,11 @@ fragment float4 liquidGlassFragment(VertexOut in               [[stage_in]],
     float2 uvTex = float2(in.uv.x, 1.0 - in.uv.y);
     float2 fragCoord = uvTex * u.resolution;
     float2 centeredUV = fragCoord - u.resolution * 0.5;
+
     float sdf = boxSDF(centeredUV, u.boxSize, u.cornerRadius);
 
     float normalizedInside = (sdf / u.boxSize.y) + 1.0;
-    float edgeBlendFactor = pow(normalizedInside, 12.0);
+    float edgeBlendFactor = pow(normalizedInside, 10.0); // было 12.0
 
     // Sharp background
     float3 baseTex = iChannel0.sample(iChannel0Sampler, uvTex).rgb;
@@ -105,29 +112,33 @@ fragment float4 liquidGlassFragment(VertexOut in               [[stage_in]],
     float weight = pow(s, 1.5);
 
     float2 sampleUV = uvTex + computeRefractOffset(normalizedInside);
-    float3 blurred = getBlurredColor(sampleUV, mipLevel, iChannel0, iChannel0Sampler, u);
+    float3 blurred = getBlurredColor(sampleUV, mipLevel,
+                                     iChannel0, iChannel0Sampler, u);
 
     // Mix sharp/blurred by blurScale
     float3 mixed = mix(baseTex, blurred, weight);
 
     // Rim-light
-    mixed += clamp(highlight(normalizedInside) * pow(edgeBlendFactor, 5.0), 0.0, 1.0) * 0.5;
+    mixed += clamp(highlight(normalizedInside) * pow(edgeBlendFactor, 5.0),
+                   0.0, 1.0) * 0.5;
 
     // Glass tint
     mixed = mix(mixed, u.tintColor, u.tintAlpha * weight);
 
-    // Subtle veil + noise
+    // Subtle veil
     float3 veilTint = float3(0.96, 0.98, 1.0);
-    mixed = mix(mixed, veilTint, 0.1 * weight);
+    mixed = mix(mixed, veilTint, 0.06 * weight); // было 0.1
 
+    // Noise
     float n = randomVec2(uvTex + u.time).x - 0.5;
-    mixed += n * 0.03 * weight;
+    float noiseAmp = 0.02 * smoothstep(0.0, 0.8, s);
+    mixed += n * noiseAmp * weight;
 
     // Inside mask
     float boxMask = 1.0 - clamp(sdf, 0.0, 1.0);
-    float3 final = mix(baseTex, mixed, boxMask);
 
-    return float4(final, 1.0);
+    float3 finalColor = mix(baseTex, mixed, boxMask);
+    return float4(finalColor, 1.0);
 }
 
 // ──────────────────────────────────────────

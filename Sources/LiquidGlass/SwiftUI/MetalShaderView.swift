@@ -44,6 +44,7 @@ struct MetalShaderView: UIViewRepresentable {
         weak var mtkView: MTKView?
         
         var pipelineState: MTLRenderPipelineState!
+        var samplerState: MTLSamplerState!
         var commandQueue: MTLCommandQueue!
         var device: MTLDevice!
         var startTime: CFAbsoluteTime = CFAbsoluteTimeGetCurrent()
@@ -74,12 +75,25 @@ struct MetalShaderView: UIViewRepresentable {
             pipelineDescriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
 
             pipelineState = try! device.makeRenderPipelineState(descriptor: pipelineDescriptor)
+            
+            let samplerDescriptor = MTLSamplerDescriptor()
+            samplerDescriptor.minFilter = .linear
+            samplerDescriptor.magFilter = .linear
+            samplerDescriptor.mipFilter = .linear
+            samplerDescriptor.minFilter = .linear
+            samplerDescriptor.magFilter = .linear
+            samplerDescriptor.mipFilter = .linear
+            samplerDescriptor.sAddressMode = .clampToEdge
+            samplerDescriptor.tAddressMode = .clampToEdge
+            samplerState = device.makeSamplerState(descriptor: samplerDescriptor)
 
             backgroundProvider = BackgroundTextureProvider(device: device)
             backgroundProvider.updateMode = updateMode
             
             backgroundProvider.didUpdateTexture = { [weak self] in
-                DispatchQueue.main.async { self?.mtkView?.setNeedsDisplay() }
+                DispatchQueue.main.async {
+                    self?.mtkView?.setNeedsDisplay()
+                }
             }
         }
 
@@ -101,19 +115,17 @@ struct MetalShaderView: UIViewRepresentable {
                 time: Float(CFAbsoluteTimeGetCurrent() - startTime),
                 blurScale: Float(blurScale),
                 boxSize: SIMD2<Float>(Float(view.drawableSize.width), Float(view.drawableSize.height)),
-                cornerRadius: Float(cornerRadius),
+                cornerRadius: Float(cornerRadius * view.contentScaleFactor),
                 tintColor: SIMD3<Float>(Float(tintColor.components?[safe: 0] ?? 0), Float(tintColor.components?[safe: 1] ?? 0), Float(tintColor.components?[safe: 2] ?? 0)),
                 tintAlpha: Float(tintColor.components?.last ?? 0)
             )
             encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 0)
             encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 0)
 
-            let sampler = device.makeSamplerState(descriptor: MTLSamplerDescriptor())!
-
+            backgroundProvider.blurRadius = Float(blurScale) * 30.0
             let snapshotTexture = backgroundProvider.currentTexture(for: mtkView!)
             encoder.setFragmentTexture(snapshotTexture, index: 0)
-
-            encoder.setFragmentSamplerState(sampler, index: 0)
+            encoder.setFragmentSamplerState(samplerState, index: 0)
 
             encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 6)
 
@@ -133,38 +145,88 @@ extension Collection {
 }
 
 #if DEBUG
-struct AnimatedGradientBackground: View {
-    @State private var animate = false
+import SwiftUI
+import MetalKit
 
-    var body: some View {
-        LinearGradient(gradient: Gradient(colors: [.blue, .purple, .pink]),
-                       startPoint: animate ? .topLeading : .bottomTrailing,
-                       endPoint: animate ? .bottomTrailing : .topLeading)
-            .ignoresSafeArea()
-            .onAppear {
-                withAnimation(Animation.linear(duration: 5).repeatForever(autoreverses: true)) {
-                    animate.toggle()
-                }
-            }
-    }
+@available(iOS 17.0, *)
+#Preview("Shader Live Debug") {
+    ShaderLiveDebugView()
 }
 
-#Preview {
-    ZStack {
-        AnimatedGradientBackground()
-        
-        VStack(spacing: 20) {
-            Text("Liquid Glass Button")
-                .font(.title)
-                .foregroundColor(.white)
-            
-            Button("Click Me") {
-                print("Tapped")
+@available(iOS 17.0, *)
+struct ShaderLiveDebugView: View {
+    @State private var blur: CGFloat = 0.4
+    @State private var radius: CGFloat = 30
+    @State private var tint: Color = .white.opacity(0.1)
+    
+    @State private var animateBG = true
+    
+    var body: some View {
+        ZStack {
+            GeometryReader { geo in
+                ZStack {
+                    LinearGradient(colors: [.black, .purple, .blue], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    
+                    Circle().fill(.orange).frame(width: 100).blur(radius: 20)
+                        .offset(x: animateBG ? 100 : -100, y: -50)
+                    
+                    Circle().fill(.cyan).frame(width: 80).blur(radius: 10)
+                        .offset(x: animateBG ? -80 : 80, y: 80)
+                    
+                    VStack(spacing: 5) {
+                        Text("LIQUID")
+                            .font(.system(size: 80, weight: .black))
+                            .foregroundStyle(.white)
+                            .shadow(color: .black, radius: 2)
+                        
+                        Text("GLASS")
+                            .font(.system(size: 80, weight: .black))
+                            .foregroundStyle(.clear)
+                            .overlay(
+                                LinearGradient(colors: [.yellow, .red], startPoint: .top, endPoint: .bottom)
+                                    .mask(Text("GLASS").font(.system(size: 80, weight: .black)))
+                            )
+                    }
+                }
+                .onAppear {
+                    withAnimation(.easeInOut(duration: 3).repeatForever(autoreverses: true)) {
+                        animateBG.toggle()
+                    }
+                }
             }
-            .font(.headline)
-            .padding()
-            .liquidGlassBackground(cornerRadius: 60)
+            .ignoresSafeArea()
+            
+            VStack {
+                Spacer()
+                
+                VStack(spacing: 10) {
+                    Text("Glass Card")
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                    
+                    Button(action: {}) {
+                        Text("Action")
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 8)
+                            .background(.white.opacity(0.2))
+                            .cornerRadius(8)
+                    }
+                }
+                .padding(30)
+                .frame(width: 250, height: 160)
+                
+                .liquidGlassBackground(
+                    cornerRadius: radius,
+                    updateMode: .continuous(),
+                    blurScale: blur,
+                    tintColor: UIColor(tint)
+                )
+                
+                Spacer()
+            }
         }
+        .frame(height: 400)
+        .clipped()
     }
 }
 #endif

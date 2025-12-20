@@ -20,6 +20,5 @@ public struct LiquidGlassView: View {
 
     public var body: some View {
         MetalShaderView(cornerRadius: cornerRadius, blurScale: blurScale, tintColor: tintColor, updateMode: updateMode)
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius * 0.32))
     }
 }

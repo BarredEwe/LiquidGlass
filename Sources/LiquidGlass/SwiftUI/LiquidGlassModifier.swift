@@ -18,8 +18,8 @@ public extension View {
     func liquidGlassBackground(
         cornerRadius: CGFloat = 20,
         updateMode: SnapshotUpdateMode = .continuous(),
-        blurScale: CGFloat = 0.5,
-        tintColor: UIColor = .gray.withAlphaComponent(0.2)
+        blurScale: CGFloat = 0.3,
+        tintColor: UIColor = .white.withAlphaComponent(0.1)
     ) -> some View {
         modifier(
             LiquidGlassModifier(cornerRadius: cornerRadius, updateMode: updateMode, blurScale: blurScale, tintColor: tintColor)
