@@ -283,19 +283,6 @@ float3 sampleBackground(float2 uv, texture2d<float> bgTexture, sampler bgSampler
 - **Performance** — High update frequencies may impact older devices (A9 and below)
 - **SwiftUI layout** — Background captures the underlying view hierarchy, not SwiftUI's logical structure
 
-## 🔄 Migration from SwiftUI-only
-
-If you're upgrading from a SwiftUI-only version, no changes are needed for existing SwiftUI code. The new UIKit support is additive:
-
-```
-// Existing SwiftUI code continues to work unchanged
-Button("Glass") { }
-    .liquidGlassBackground()
-
-// New UIKit support
-button.addLiquidGlassBackground()
-```
-
 ## 🙋‍♂️ FAQ
 
 > **The glass doesn't update when I scroll.**  
