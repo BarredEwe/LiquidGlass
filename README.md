@@ -2,10 +2,12 @@
   <img src="Docs/Logo.png" width="380" alt="LiquidGlass logo" />
 </p>
 
-> **Real‑time frosted glass and liquid‑like refraction for any SwiftUI view – no screenshots, no boilerplate.**
+> **Metal-powered frosted glass effect with real-time background blur for SwiftUI and UIKit**
+
+A Swift library that creates liquid glass visual effects using custom Metal shaders. Automatically captures and blurs the view hierarchy behind UI elements without manual screenshot management.
 
 <p align="center">
-  <a href="https://swiftpackageindex.com/YourOrg/LiquidGlassSwift"><img src="https://img.shields.io/badge/Swift_Package-Compatible-5E5E5E?style=for-the-badge&logo=swift"/></a>
+  <a href="https://swiftpackageindex.com/BarredEwe/LiquidGlass"><img src="https://img.shields.io/badge/Swift_Package-Compatible-5E5E5E?style=for-the-badge&logo=swift"/></a>
   <img src="https://img.shields.io/badge/iOS‑14%2B-blue?style=for-the-badge&logo=apple"/>
   <img src="https://img.shields.io/badge/Swift‑5.9-orange?style=for-the-badge&logo=swift"/>
   <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge"/>
@@ -13,39 +15,50 @@
 
 ---
 
+## What is LiquidGlass?
+
+LiquidGlass is an iOS library that creates a translucent frosted glass effect with blur and refraction. Unlike standard `UIVisualEffectView`, this implementation uses custom Metal shaders and view hierarchy capturing to achieve more advanced visual effects with fine-grained control over update frequency and appearance.
+
 ## ✨ Features
 
 |                              |                                                                                                    |
 | ---------------------------- | -------------------------------------------------------------------------------------------------- |
-| 🔍 **Zero screenshots**      | Background is captured automatically – just drop `liquidGlassBackground` on any view.           |
-| ⚡ **Real‑time**              | Optimised `MTLTexture` snapshots + lazy redraw; redraws only when the background actually changes. |
-| 🛠 **Flexible update modes** | `.continuous`, `.once`, `.manual` via the `updateMode` modifier.                    |
-| 🧩 **SwiftUI + UIKit**       | Works seamlessly in both frameworks with native APIs.                                            |
+| 🔍 **Automatic capture**      | Background is captured automatically – just drop `liquidGlassBackground` on any view.           |
+| ⚡ **Real‑time rendering**    | Optimised `MTLTexture` snapshots + lazy redraw; redraws only when the background actually changes. |
+| 🛠 **Flexible update modes** | `.continuous`, `.once`, `.manual` via the `updateMode` parameter.                    |
+| 🧩 **SwiftUI + UIKit**       | Works seamlessly in both frameworks with native APIs and shared Metal backend.                                            |
 | 💤 **Battery‑friendly**      | MTKView stays paused until the provider notifies it – no wasted frames.                            |
+| 🎨 **Customizable shader**   | Modify Metal shader code to adjust blur, refraction, and visual effects.                           |
 
 ## 🛠 Installation
 
 Add *LiquidGlass* through Swift Package Manager:
 
-```text
+```
 https://github.com/BarredEwe/LiquidGlass.git
 ```
 
-Or via **Xcode » Package Dependencies…**
-Select ***LiquidGlass*** and you’re done.
+Or via **Xcode → File → Add Package Dependencies…**  
+Select ***LiquidGlass*** and you're done.
 
-## 🚀 Quick start
+## 🚀 Quick Start
 
 ### SwiftUI
 
-```swift
+```
+import SwiftUI
+import LiquidGlass
+
 Button("Glass Text") { }
     .liquidGlassBackground(cornerRadius: 60)
 ```
 
 ### UIKit
 
-```swift
+```
+import UIKit
+import LiquidGlass
+
 // Using extension (recommended)
 button.addLiquidGlassBackground(cornerRadius: 25)
 
@@ -53,6 +66,16 @@ button.addLiquidGlassBackground(cornerRadius: 25)
 let glassView = LiquidGlassUIView(cornerRadius: 30, blurScale: 0.8)
 containerView.addSubview(glassView)
 ```
+
+## How It Works
+
+LiquidGlass uses a four-stage pipeline to achieve the glass effect:
+
+1. **Hierarchy Capture** — `HierarchySnapshotCapturer` renders the entire view hierarchy above the glass view into a `CGImage`
+2. **Texture Creation** — `BackgroundTextureProvider` converts the image to `MTLTexture` and applies GPU-based blur
+3. **Metal Rendering** — `MetalShaderView.Coordinator` renders the effect through `MTKView` with custom fragment shader
+4. **Update Management** — Depending on `updateMode`, the background updates automatically or on-demand
+
 
 ## 🖼 Examples
 
@@ -62,22 +85,29 @@ containerView.addSubview(glassView)
 <tr>
 <td width="50%">
   
-```swift
-ZStack {
-    AnimatedColorsMeshGradientView()
+```
+import SwiftUI
+import LiquidGlass
 
-    VStack(spacing: 20) {
-        Text("Liquid Glass Button")
-            .font(.title.bold())
-            .foregroundColor(.white)
+struct ContentView: View {
+    var body: some View {
+        ZStack {
+            AnimatedColorsMeshGradientView()
 
-        Button("Click Me 🔥") {
-            print("Tapped")
+            VStack(spacing: 20) {
+                Text("Liquid Glass Button")
+                    .font(.title.bold())
+                    .foregroundColor(.white)
+
+                Button("Click Me 🔥") {
+                    print("Tapped")
+                }
+                .foregroundStyle(.white)
+                .font(.headline)
+                .padding()
+                .liquidGlassBackground(cornerRadius: 60)
+            }
         }
-        .foregroundStyle(.white)
-        .font(.headline)
-        .padding()
-        .liquidGlassBackground(cornerRadius: 60)
     }
 }
 ```
@@ -91,7 +121,10 @@ ZStack {
 
 ### UIKit Example
 
-```swift
+```
+import UIKit
+import LiquidGlass
+
 class ViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -114,7 +147,7 @@ class ViewController: UIViewController {
 }
 ```
 
-## ⚙️ Update modes
+## ⚙️ Update Modes
 
 | Mode                     | What it does                              | Best for                                    |
 | ------------------------ | ----------------------------------------- | ------------------------------------------- |
@@ -122,15 +155,20 @@ class ViewController: UIViewController {
 | `.once`                  | Captures exactly one frame.               | Static dialogs, settings sheets.            |
 | `.manual`                | Capture only when you call `invalidate()` | Power‑saving, custom triggers.              |
 
-### SwiftUI:
+### SwiftUI
 
-```swift
-.liquidGlassBackground(updateMode: .once)
+```
+Button("Glass Button") { }
+    .liquidGlassBackground(
+        cornerRadius: 20,
+        updateMode: .continuous(interval: 0.1),
+        blurScale: 0.5
+    )
 ```
 
-### UIKit:
+### UIKit
 
-```swift
+```
 // Using extension
 button.addLiquidGlassBackground(updateMode: .manual)
 
@@ -142,11 +180,22 @@ let glassView = LiquidGlassUIView(updateMode: .once)
 glassView.invalidateBackground() // for manual updates
 ```
 
-## 🎛 UIKit API Reference
+## 🎛 API Reference
+
+### SwiftUI Modifier
+
+```
+.liquidGlassBackground(
+    cornerRadius: CGFloat = 20,                          // Corner radius
+    updateMode: SnapshotUpdateMode = .continuous(),      // Update frequency
+    blurScale: CGFloat = 0.3,                            // Blur intensity (0.0-1.0)
+    tintColor: UIColor = .white.withAlphaComponent(0.1) // Tint color overlay
+)
+```
 
 ### LiquidGlassUIView
 
-```swift
+```
 // Initialization
 let glassView = LiquidGlassUIView(
     cornerRadius: 20,
@@ -155,19 +204,19 @@ let glassView = LiquidGlassUIView(
     tintColor: .gray.withAlphaComponent(0.2)
 )
 
-// Properties (all animatable)
+// Properties (all animatable with UIView.animate)
 glassView.cornerRadius = 25
 glassView.blurScale = 0.8
 glassView.tintColor = .blue.withAlphaComponent(0.1)
 glassView.updateMode = .manual
 
 // Methods
-glassView.invalidateBackground()
+glassView.invalidateBackground()  // Force update
 ```
 
 ### UIView Extensions
 
-```swift
+```
 // Add glass background (fills entire view)
 view.addLiquidGlassBackground(cornerRadius: 20)
 
@@ -178,32 +227,67 @@ view.addLiquidGlassBackground(
 )
 
 // Access glass backgrounds
-let glassView = view.liquidGlassBackground
-let allGlassViews = view.liquidGlassBackgrounds
+let glassView = view.liquidGlassBackground        // First glass view
+let allGlassViews = view.liquidGlassBackgrounds   // All glass views
 
 // Remove glass backgrounds
 view.removeLiquidGlassBackgrounds()
 ```
 
-## 🎨 Shader & Customisation
+## 🎨 Shader Customization
 
-* **Fragment shader** – tweak `Sources/LiquidGlass/Shaders/LiquidGlassShader.metal` to adjust blur radius, refraction strength, tint or chromatic aberration. Two editable functions:
-  * `sampleBackground()` – distort UVs / add ripple
-  * `postProcess()` – lift saturation, add tint, vignette, bloom.
-* **Performance knobs** – lower snapshot interval, switch to `.once`, or optimise shader loops.
+Modify `Sources/LiquidGlass/Shaders/LiquidGlassShader.metal` to customize the visual effect:
 
-## 📈 Performance notes
+- **`sampleBackground()`** — Distort UV coordinates, add wave/ripple effects
+- **`postProcess()`** — Adjust saturation, add vignette, chromatic aberration, bloom
 
-* Snapshot covers only the area behind the glass – minimal memory.
-* Layers above the glass are never hidden → no flicker.
-* Lazy redraw means nearly zero GPU when nothing changes.
-* UIKit and SwiftUI versions share the same optimized Metal backend.
+### Example Modification
+
+```
+// In LiquidGlassShader.metal
+float3 sampleBackground(float2 uv, texture2d<float> bgTexture, sampler bgSampler) {
+    // Add wave distortion
+    float wave = sin(uv.y * 10.0 + uniforms.time) * 0.01;
+    uv.x += wave;
+    
+    return bgTexture.sample(bgSampler, uv).rgb;
+}
+```
+
+## 📈 Performance
+
+**Optimizations:**
+- Snapshot covers only the area behind the glass – minimal memory footprint
+- Layers above the glass are never hidden → no flicker
+- Lazy redraw means nearly zero GPU usage when nothing changes
+- Capture happens at reduced scale (0.8× screen scale) for memory savings
+- UIKit and SwiftUI versions share the same optimized Metal backend
+
+**Recommendations:**
+- Use `.once` for static UI (dialogs, modals)
+- Use `.continuous(interval: 0.05)` (≈20 FPS) for animated backgrounds
+- Avoid many simultaneous glass views
+- Test on real devices, not just simulator
+
+## 📱 Requirements
+
+- iOS 14.0+
+- Swift 5.9+
+- Xcode 15.0+
+- Metal-capable device
+
+## ⚠️ Known Limitations
+
+- **View hierarchy only** — Cannot capture other windows
+- **Metal required** — Won't work on very old devices without GPU support
+- **Performance** — High update frequencies may impact older devices (A9 and below)
+- **SwiftUI layout** — Background captures the underlying view hierarchy, not SwiftUI's logical structure
 
 ## 🔄 Migration from SwiftUI-only
 
 If you're upgrading from a SwiftUI-only version, no changes are needed for existing SwiftUI code. The new UIKit support is additive:
 
-```swift
+```
 // Existing SwiftUI code continues to work unchanged
 Button("Glass") { }
     .liquidGlassBackground()
@@ -214,7 +298,7 @@ button.addLiquidGlassBackground()
 
 ## 🙋‍♂️ FAQ
 
-> **The glass doesn’t update when I scroll.**  
+> **The glass doesn't update when I scroll.**  
 > Use `.continuous(interval: 0.016)` (≈60 fps) or trigger `.manual`'s `invalidate()` in `scrollViewDidScroll`.
 
 > **Can I animate the glass properties?**  
@@ -226,9 +310,20 @@ button.addLiquidGlassBackground()
 > **Can I mix SwiftUI and UIKit glass views?**  
 > Absolutely! They use the same Metal backend and work seamlessly together.
 
+> **Why does this look different from Apple's Liquid Glass?**  
+> This is an independent implementation of a similar effect. Apple's official Liquid Glass is available only in iOS 26+ and uses private APIs.
+
+> **What's the performance impact?**  
+> Minimal when using `.once` or `.manual`. With `.continuous`, expect ~5-10% GPU usage depending on update frequency and device.
+
 ## 🛡 License
 
 MIT © 2025 • BarredEwe / Prefire
+
+## 🙏 Acknowledgments
+
+- Inspired by Apple's Liquid Glass design language
+- Metal shaders based on GPU Gems blur techniques
 
 ---
 
